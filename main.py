@@ -37,6 +37,14 @@ def create_embed(title, content, color, image_url, banner):
     embed.set_footer(text="DCAdditions by @digeryy")
     return embed
 
+def get_id_from_mention(mention):
+    match = re.match(r"<@(\S+)>", mention)
+    if not match:
+        match = re.match(r"(\S+)", mention)
+
+    if match:
+        return match.group(1)
+
 @client.event
 async def on_message(message):
     if not message.author == client.user:
@@ -69,9 +77,8 @@ async def on_message(message):
             command = match.group(1)
             parameter = match.group(2)
             if command == "pookie":
-                member = await guild.fetch_member(parameter)
                 try:
-                    member = await guild.fetch_member(parameter)
+                    member = await guild.fetch_member(get_id_from_mention(parameter))
                 except:
                     embed = create_embed("Error", "Could not find user.", embed_error_color, None, None)
                 else:
@@ -85,8 +92,12 @@ async def on_message(message):
             
             if staff_role in roles:
                 if command == "barn":
-                    member = await guild.fetch_member(parameter)
-                    embed = create_embed("Barn", f"{member.mention} got barned!", embed_error_color, "https://c.tenor.com/OaFgXC-QB00AAAAC/tenor.gif", None)
+                    try:
+                        member = await guild.fetch_member(get_id_from_mention(parameter))
+                    except:
+                        embed = create_embed("Error", "Could not find user.", embed_error_color, None, None)
+                    else:
+                        embed = create_embed("Barn", f"{member.mention} got barned!", embed_error_color, "https://c.tenor.com/OaFgXC-QB00AAAAC/tenor.gif", None)
 
                     await message.reply(embed=embed)
                 
@@ -95,9 +106,16 @@ async def on_message(message):
                         saved_data["command-prefix"] = parameter
                         write_json("data.json", saved_data)
                         embed = create_embed("Change command prefix", f"Changed command prefix to '{parameter}'.", embed_color, None, None)
+                        emoji = discord.PartialEmoji(id="1430257378770685953", name="pukerainbow_gil_static")
+                        activity = discord.CustomActivity(name=f"{parameter}ping", emoji=emoji)
+                        await client.change_presence(activity=activity)
                     else:
                         embed = create_embed("Error", "That's the current prefix buddy.", embed_error_color, None, None)
 
                     await message.reply(embed=embed)
+
+@client.event
+async def on_ready():
+    pass
 
 client.run(token)
