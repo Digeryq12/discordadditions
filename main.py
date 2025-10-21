@@ -48,7 +48,7 @@ def get_id_from_mention(mention):
     
 def get_activity(cmd):
     emoji = discord.PartialEmoji(id="1430257378770685953", name="pukerainbow_gil_static")
-    activity = discord.CustomActivity(name=f"{saved_data["command-prefix"]}{cmd} | Making Discord cooler!", emoji=emoji)
+    activity = discord.CustomActivity(name=f"{saved_data["command-prefix"]}{cmd} | Open-source", emoji=emoji)
     return activity
 
 @client.event
@@ -77,25 +77,32 @@ async def on_message(message):
                     embed = create_embed("Reset Nickname", "Successfully reset your nickname.", embed_color, None, None)
 
                 await message.reply(embed=embed)
+            
+            if command == "git":
+                embed = create_embed("Github repository", "Link: https://github.com/Digeryq12/discordadditions", embed_color, None, None)
+                await message.reply(embed=embed)
         
         match = re.match(rf"{re.escape(saved_data["command-prefix"])}(\S+) (\S+)", msg)
         if match:
             command = match.group(1)
             parameter = match.group(2)
             if command == "pookie":
-                try:
-                    member = await guild.fetch_member(get_id_from_mention(parameter))
-                except:
-                    embed = create_embed("Error", "Could not find user.", embed_error_color, None, None)
-                else:
-                    if member != message.author:
-                        try:
-                            await member.edit(nick=f"{member.global_name} ({message.author.global_name}'s pookie)")
-                            embed = create_embed("Pookie", f"{member.global_name} is now your pookie!", embed_color, None, None)
-                        except:
-                            embed = create_embed("Error", "Failed to change nickname of user.", embed_error_color, None, None)
+                if parameter != "@everyone":
+                    try:
+                        member = await guild.fetch_member(get_id_from_mention(parameter))
+                    except:
+                        embed = create_embed("Error", "Could not find user.", embed_error_color, None, None)
                     else:
-                        embed = create_embed("Error", "No. :3", embed_error_color, None, None)
+                        if member != message.author:
+                            try:
+                                await member.edit(nick=f"{member.global_name} ({message.author.global_name}'s pookie)")
+                                embed = create_embed("Pookie", f"{member.global_name} is now your pookie!", embed_color, None, None)
+                            except:
+                                embed = create_embed("Error", "Failed to change nickname of user.", embed_error_color, None, None)
+                        else:
+                            embed = create_embed("Error", "No. :3", embed_error_color, None, None)
+                else:
+                    embed = create_embed("Error", "Nice try duh.", embed_error_color, None, None)
 
                 await message.reply(embed=embed)
             
@@ -126,7 +133,7 @@ async def on_message(message):
 
 @client.event
 async def on_ready():
-    cmds = ["ping", "reset-nick", "pookie", "barn"]
+    cmds = ["ping", "reset-nick", "pookie", "barn", "git"]
     while True:
         for cmd in cmds:
             await client.change_presence(activity=get_activity(cmd))
