@@ -3,6 +3,7 @@ import discord
 from dotenv import load_dotenv
 import json
 import re
+import asyncio
 
 embed_color = 431252
 embed_error_color = 16711680
@@ -44,6 +45,11 @@ def get_id_from_mention(mention):
 
     if match:
         return match.group(1)
+    
+def get_activity(cmd):
+    emoji = discord.PartialEmoji(id="1430257378770685953", name="pukerainbow_gil_static")
+    activity = discord.CustomActivity(name=f"{saved_data["command-prefix"]}{cmd} | Making Discord cooler!", emoji=emoji)
+    return activity
 
 @client.event
 async def on_message(message):
@@ -82,11 +88,14 @@ async def on_message(message):
                 except:
                     embed = create_embed("Error", "Could not find user.", embed_error_color, None, None)
                 else:
-                    try:
-                        await member.edit(nick=f"{member.global_name} ({message.author.global_name}'s pookie)")
-                        embed = create_embed("Pookie", f"{member.global_name} is now your pookie!", embed_color, None, None)
-                    except:
-                        embed = create_embed("Error", "Failed to change nickname of user.", embed_error_color, None, None)
+                    if member != message.author:
+                        try:
+                            await member.edit(nick=f"{member.global_name} ({message.author.global_name}'s pookie)")
+                            embed = create_embed("Pookie", f"{member.global_name} is now your pookie!", embed_color, None, None)
+                        except:
+                            embed = create_embed("Error", "Failed to change nickname of user.", embed_error_color, None, None)
+                    else:
+                        embed = create_embed("Error", "No. :3", embed_error_color, None, None)
 
                 await message.reply(embed=embed)
             
@@ -97,7 +106,10 @@ async def on_message(message):
                     except:
                         embed = create_embed("Error", "Could not find user.", embed_error_color, None, None)
                     else:
-                        embed = create_embed("Barn", f"{member.mention} got barned!", embed_error_color, "https://c.tenor.com/OaFgXC-QB00AAAAC/tenor.gif", None)
+                        if member != message.author:
+                            embed = create_embed("Barn", f"{member.mention} got barned!", embed_error_color, "https://c.tenor.com/OaFgXC-QB00AAAAC/tenor.gif", None)
+                        else:
+                            embed = create_embed("Barn", "You barned yourself, silly.", embed_error_color, "https://c.tenor.com/OaFgXC-QB00AAAAC/tenor.gif", None)
 
                     await message.reply(embed=embed)
                 
@@ -106,9 +118,7 @@ async def on_message(message):
                         saved_data["command-prefix"] = parameter
                         write_json("data.json", saved_data)
                         embed = create_embed("Change command prefix", f"Changed command prefix to '{parameter}'.", embed_color, None, None)
-                        emoji = discord.PartialEmoji(id="1430257378770685953", name="pukerainbow_gil_static")
-                        activity = discord.CustomActivity(name=f"{parameter}ping", emoji=emoji)
-                        await client.change_presence(activity=activity)
+                        await client.change_presence(activity=get_activity("ping"))
                     else:
                         embed = create_embed("Error", "That's the current prefix buddy.", embed_error_color, None, None)
 
@@ -116,6 +126,10 @@ async def on_message(message):
 
 @client.event
 async def on_ready():
-    pass
+    cmds = ["ping", "reset-nick", "pookie", "barn"]
+    while True:
+        for cmd in cmds:
+            await client.change_presence(activity=get_activity(cmd))
+            await asyncio.sleep(5)
 
 client.run(token)
