@@ -6,6 +6,7 @@ import re
 import asyncio
 import datetime
 import random
+import time
 
 embed_color = 431252
 embed_error_color = 16711680
@@ -21,6 +22,11 @@ client = discord.Client(intents=intents)
 guild_id = "1385626987003121877"
 staff_role_id = "1389952977003085844"
 latest_help = None
+excluded_channels = [
+    "1427704338981060739", #LSLink
+]
+dm_command_cooldown = 5
+dm_command_last_used = time.time()
 
 def read_json(file_name):
     with open(file_name, "r") as file:
@@ -56,40 +62,9 @@ def get_activity(cmd):
     activity = discord.CustomActivity(name=f"{saved_data["command-prefix"]}{cmd} | Open-source", emoji=emoji)
     return activity
 
-general_help_message = f"""- **ping** *{saved_data["command-prefix"]}ping*
-Returns the rtt.
-- **reset-nick** *{saved_data["command-prefix"]}reset-nick*
-Resets your nickname (to your username).
-- **git** *{saved_data["command-prefix"]}git*
-Returns the github repo link.
-- **staff-call** *{saved_data["command-prefix"]}staff-call*
-'Call' the staff members.
-- **profile** *{saved_data["command-prefix"]}profile [@user]*
-View the profile of the specified user.
-- **dm** *{saved_data["command-prefix"]}dm [@user] [prompt]*
-Direct message the specified user with the given prompt."""
-
-fun_help_message = f"""- **pookie** *{saved_data["command-prefix"]}pookie [@user]*
-Make someone your pookie.
-- **eat** *{saved_data["command-prefix"]}eat [@user]*
-No context.
-- **8ball** *{saved_data["command-prefix"]}8ball [prompt]*
-Let the magic 8 ball respond to your prompt.
-- **rate** *{saved_data["command-prefix"]}rate [prompt]*
-Rates the prompt.
-- **barn** (STAFF) *{saved_data["command-prefix"]}barn [@user]*
-Barns the specified user."""
-
-staff_help_message = f"""- **qotd** *{saved_data["command-prefix"]}qotd* (Reply to a message)
-Select the quote of the day.
-- **change-prefix** *{saved_data["command-prefix"]}change-prefix [prefix]*
-Change the command prefix.
-- **purge** *{saved_data["command-prefix"]}purge [amount]*
-Delete the specififed amount of messages in the channel."""
-
 @client.event
 async def on_message(message):
-    if not message.author == client.user:
+    if not message.author == client.user and not str(message.channel.id) in excluded_channels:
         msg = message.content.lower()
         guild = await client.fetch_guild(guild_id)
         sender = await guild.fetch_member(message.author.id)
@@ -320,31 +295,72 @@ async def on_message(message):
             parameter2 = match.group(3)
 
             if command == "dm":
-                try:
-                    member = await guild.fetch_member(get_id_from_mention(parameter1))
-                except:
-                    embed = create_embed("Error", "Could not find user.", embed_error_color, None, None)
+                global dm_command_last_used
+                now = time.time()
+                if now - dm_command_last_used < dm_command_cooldown:
+                    embed = create_embed("Error", "Slow down with that command.", embed_error_color, None, None)
                     await message.reply(embed=embed)
                 else:
-                    emoji = discord.PartialEmoji(name="chickendrip", id="1390038881772240907")
-                    dm_channel = await member.create_dm()
-                    embed = create_embed(f"{message.author.name} (from '{guild.name}')", parameter2, embed_color, None, None)
-                    await dm_channel.send(embed=embed)
-                    await message.add_reaction(emoji)
+                    dm_command_last_used = now
+                    try:
+                        member = await guild.fetch_member(get_id_from_mention(parameter1))
+                    except:
+                        embed = create_embed("Error", "Could not find user.", embed_error_color, None, None)
+                        await message.reply(embed=embed)
+                    else:
+                        emoji = discord.PartialEmoji(name="chickendrip", id="1390038881772240907")
+                        dm_channel = await member.create_dm()
+                        embed = create_embed(f"{message.author.name} (from '{guild.name}')", parameter2, embed_color, None, None)
+                        await dm_channel.send(embed=embed)
+                        await message.add_reaction(emoji)
+                    
 
 @client.event
 async def on_reaction_add(reaction, user):
-    trigger_message = await reaction.message.channel.fetch_message(reaction.message.reference.message_id)
-    if reaction.message == latest_help and reaction.me and user.id == trigger_message.author.id:
-        if reaction.emoji == "🌍":
-            embed = create_embed("General", general_help_message, embed_color, None, None)
-        elif reaction.emoji == "🎉":
-            embed = create_embed("Fun", fun_help_message, embed_color, None, None)
-        elif reaction.emoji == "🛡️":
-            embed = create_embed("Staff", staff_help_message, embed_color, None, None)
+    if reaction.message == latest_help and reaction.me:
+        trigger_message = await reaction.message.channel.fetch_message(reaction.message.reference.message_id)
+        if user.id == trigger_message.author.id:
 
-        await reaction.message.clear_reactions()
-        await reaction.message.edit(embed=embed)
+            general_help_message = f"""- **ping** *{saved_data["command-prefix"]}ping*
+Returns the rtt.
+- **reset-nick** *{saved_data["command-prefix"]}reset-nick*
+Resets your nickname (to your username).
+- **git** *{saved_data["command-prefix"]}git*
+Returns the github repo link.
+- **staff-call** *{saved_data["command-prefix"]}staff-call*
+'Call' the staff members.
+- **profile** *{saved_data["command-prefix"]}profile [@user]*
+View the profile of the specified user.
+- **dm** *{saved_data["command-prefix"]}dm [@user] [prompt]*
+Direct message the specified user with the given prompt."""
+
+            fun_help_message = f"""- **pookie** *{saved_data["command-prefix"]}pookie [@user]*
+Make someone your pookie.
+- **eat** *{saved_data["command-prefix"]}eat [@user]*
+No context.
+- **8ball** *{saved_data["command-prefix"]}8ball [prompt]*
+Let the magic 8 ball respond to your prompt.
+- **rate** *{saved_data["command-prefix"]}rate [prompt]*
+Rates the prompt.
+- **barn** (STAFF) *{saved_data["command-prefix"]}barn [@user]*
+Barns the specified user."""
+
+            staff_help_message = f"""- **qotd** *{saved_data["command-prefix"]}qotd* (Reply to a message)
+Select the quote of the day.
+- **change-prefix** *{saved_data["command-prefix"]}change-prefix [prefix]*
+Change the command prefix.
+- **purge** *{saved_data["command-prefix"]}purge [amount]*
+Delete the specififed amount of messages in the channel."""
+
+            if reaction.emoji == "🌍":
+                embed = create_embed("General", general_help_message, embed_color, None, None)
+            elif reaction.emoji == "🎉":
+                embed = create_embed("Fun", fun_help_message, embed_color, None, None)
+            elif reaction.emoji == "🛡️":
+                embed = create_embed("Staff", staff_help_message, embed_color, None, None)
+
+            await reaction.message.clear_reactions()
+            await reaction.message.edit(embed=embed)
 
 @client.event
 async def on_ready():
