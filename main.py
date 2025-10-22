@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 import json
 import re
 import asyncio
+import datetime
+import random
 
 embed_color = 431252
 embed_error_color = 16711680
@@ -13,9 +15,12 @@ token = os.getenv("BOT_TOKEN")
 
 intents = discord.Intents.default()
 intents.message_content = True
+intents.members = True
+intents.presences = True
 client = discord.Client(intents=intents)
 guild_id = "1385626987003121877"
 staff_role_id = "1389952977003085844"
+latest_help = None
 
 def read_json(file_name):
     with open(file_name, "r") as file:
@@ -51,12 +56,44 @@ def get_activity(cmd):
     activity = discord.CustomActivity(name=f"{saved_data["command-prefix"]}{cmd} | Open-source", emoji=emoji)
     return activity
 
+general_help_message = f"""- **ping** *{saved_data["command-prefix"]}ping*
+Returns the rtt.
+- **reset-nick** *{saved_data["command-prefix"]}reset-nick*
+Resets your nickname (to your username).
+- **git** *{saved_data["command-prefix"]}git*
+Returns the github repo link.
+- **staff-call** *{saved_data["command-prefix"]}staff-call*
+'Call' the staff members.
+- **profile** *{saved_data["command-prefix"]}profile [@user]*
+View the profile of the specified user.
+- **dm** *{saved_data["command-prefix"]}dm [@user] [prompt]*
+Direct message the specified user with the given prompt."""
+
+fun_help_message = f"""- **pookie** *{saved_data["command-prefix"]}pookie [@user]*
+Make someone your pookie.
+- **eat** *{saved_data["command-prefix"]}eat [@user]*
+No context.
+- **8ball** *{saved_data["command-prefix"]}8ball [prompt]*
+Let the magic 8 ball respond to your prompt.
+- **rate** *{saved_data["command-prefix"]}rate [prompt]*
+Rates the prompt.
+- **barn** (STAFF) *{saved_data["command-prefix"]}barn [@user]*
+Barns the specified user."""
+
+staff_help_message = f"""- **qotd** *{saved_data["command-prefix"]}qotd* (Reply to a message)
+Select the quote of the day.
+- **change-prefix** *{saved_data["command-prefix"]}change-prefix [prefix]*
+Change the command prefix.
+- **purge** *{saved_data["command-prefix"]}purge [amount]*
+Delete the specififed amount of messages in the channel."""
+
 @client.event
 async def on_message(message):
     if not message.author == client.user:
         msg = message.content.lower()
         guild = await client.fetch_guild(guild_id)
-        roles = message.author.roles
+        sender = await guild.fetch_member(message.author.id)
+        roles = sender.roles
         staff_role = await guild.fetch_role(staff_role_id)
 
         match = re.match(rf"{re.escape(saved_data["command-prefix"])}(\S+)", msg)
@@ -68,9 +105,21 @@ async def on_message(message):
                 embed = create_embed("Ping", content, embed_color, None, None)
                 await message.reply(embed=embed)
             
+            if command == "help":
+                content = """Please specify the help category by using one of the reactions below.
+**Categories:**
+*general*, *fun*, *staff*"""
+                embed = create_embed("Ping", content, embed_color, None, None)
+                global latest_help
+                help_msg = await message.reply(embed=embed)
+                await help_msg.add_reaction("🌍")
+                await help_msg.add_reaction("🎉")
+                await help_msg.add_reaction("🛡️")
+                latest_help = help_msg
+            
             if command == "reset-nick":
                 try:
-                    await message.author.edit(nick=message.author.global_name)
+                    await message.author.edit(nick=message.author.name)
                 except:
                     embed = create_embed("Error", "Failed to reset nickname of user.", embed_error_color, None, None)
                 else:
@@ -81,8 +130,30 @@ async def on_message(message):
             if command == "git":
                 embed = create_embed("Github repository", "Link: https://github.com/Digeryq12/discordadditions", embed_color, None, None)
                 await message.reply(embed=embed)
+            
+            if command == "staff-call":
+                emoji = discord.PartialEmoji(name="chickendrip", id="1390038881772240907")
+                embed = create_embed("Staff call", f"{message.author.mention} is calling from {message.channel.mention}!", embed_error_color, None, None)
+                staff_channel = await guild.fetch_channel("1398559095145103451")
+                await staff_channel.send(embed=embed)
+                await message.add_reaction(emoji)
+            
+            if staff_role in roles:
+                if command == "qotd":
+                    if message.reference:
+                        quote_message = await message.channel.fetch_message(message.reference.message_id)
+                        qotd_channel = await guild.fetch_channel("1427670684930408649")
+                        now = datetime.datetime.now()
+                        current_time = now.strftime("%B %d")
+                        qotd = create_embed(f"QOTD {current_time}", f"*{quote_message.content}*\n- {quote_message.author.name}", embed_color, None, None)
+                        await qotd_channel.send(embed=qotd)
+                        embed = create_embed("QOTD", "Successfully selected the quote of today.", embed_color, None, None)
+                        await message.reply(embed=embed)
+                    else:
+                        embed = create_embed("Error", "You need to reply to a message.", embed_error_color, None, None)
+                        await message.reply(embed=embed)
         
-        match = re.match(rf"{re.escape(saved_data["command-prefix"])}(\S+) (\S+)", msg)
+        match = re.match(rf"{re.escape(saved_data["command-prefix"])}(\S+) (.+)", msg)
         if match:
             command = match.group(1)
             parameter = match.group(2)
@@ -95,8 +166,8 @@ async def on_message(message):
                     else:
                         if member != message.author:
                             try:
-                                await member.edit(nick=f"{member.global_name} ({message.author.global_name}'s pookie)")
-                                embed = create_embed("Pookie", f"{member.global_name} is now your pookie!", embed_color, None, None)
+                                await member.edit(nick=f"{member.name} ({message.author.name}'s pookie)")
+                                embed = create_embed("Pookie", f"{member.name} is now your pookie!", embed_color, None, None)
                             except:
                                 embed = create_embed("Error", "Failed to change nickname of user.", embed_error_color, None, None)
                         else:
@@ -104,6 +175,103 @@ async def on_message(message):
                 else:
                     embed = create_embed("Error", "Nice try duh.", embed_error_color, None, None)
 
+                await message.reply(embed=embed)
+            
+            if command == "profile":
+                try:
+                    member = await guild.fetch_member(get_id_from_mention(parameter))
+                except:
+                    embed = create_embed("Error", "Could not find user.", embed_error_color, None, None)
+                else:
+                    join_date = member.joined_at.strftime("%d/%m/%Y, %H:%M")
+                    status = member.activities
+                    display_name = member.display_name
+                    is_pending = member.pending
+                    username = member.name
+                    member_id = member.id
+                    is_bot = member.bot
+                    member_roles = member.roles
+                    creation_date = member.created_at.strftime("%d/%m/%Y, %H:%M")
+                    avatar = member.display_avatar
+                    banner = member.display_banner
+                    roles_string = ""
+                    for rl in member_roles:
+                        if rl.name != "@everyone":
+                            roles_string += f"{rl.mention} "
+
+                    embed_content = f"""**@{username}**
+**Id:** {member_id}
+**Status:** {status}
+**Creation date:** {creation_date}
+**Server join date:** {join_date}
+**Roles:** {roles_string}
+**Is bot:** {is_bot}
+**Is pending (application):** {is_pending}"""
+                    
+                    embed = create_embed(f"{display_name}'s Profile", embed_content, embed_color, avatar, banner)
+
+                await message.reply(embed=embed)
+            
+            if command == "eat":
+                try:
+                    member = await guild.fetch_member(get_id_from_mention(parameter))
+                except:
+                    embed = create_embed("Error", "Could not find user.", embed_error_color, None, None)
+                else:
+                    yumm_color = embed_color
+
+                    if member.id == message.author.id:
+                        yummessage = "You ate... yourself?"
+                    elif member.bot:
+                        if member.id == client.user.id:
+                            yummessage = "HEY! I'm not yummy! Don't eat me!"
+                            yumm_color = embed_error_color
+                        else:
+                            yummessage = "You ate... a clanker?"
+                    else:
+                        yum_list = ["Yum!", "Yummy!", "Delicious!", "Tasty!", "Mmmmm!"]
+                        rand = random.randint(0, len(yum_list) - 1)
+                        yummessage = f"You ate: {member.name}. {yum_list[rand]}"
+                    
+                    embed = create_embed("Eat", yummessage, yumm_color, None, None)
+                    await message.reply(embed=embed)
+            
+            if command == "8ball":
+                responses = [
+                    # Positive
+                    "It is certain",
+                    "It is decidedly so",
+                    "Without a doubt",
+                    "Yes – definitely",
+                    "You may rely on it",
+                    "As I see it, yes",
+                    "Most likely",
+                    "Outlook good",
+                    "Yes",
+                    "Signs point to yes",
+
+                    # Neutral
+                    "Reply hazy, try again",
+                    "Ask again later",
+                    "Better not tell you now",
+                    "Cannot predict now",
+                    "Concentrate and ask again",
+
+                    # Negative
+                    "Don't count on it",
+                    "My reply is no",
+                    "My sources say no",
+                    "Outlook not so good",
+                    "Very doubtful"
+                ]
+
+                rand = random.randint(0, len(responses) - 1)
+                embed = create_embed("Magic 8 Ball", responses[rand], embed_color, None, None)
+                await message.reply(embed=embed)
+            
+            if command == "rate":
+                rating = random.randint(1, 10)
+                embed = create_embed("Rate", f"Giving a {rating}/10 to '{parameter}'", embed_color, None, None)
                 await message.reply(embed=embed)
             
             if staff_role in roles:
@@ -131,9 +299,61 @@ async def on_message(message):
 
                     await message.reply(embed=embed)
 
+                if command == "purge":
+                    try:
+                        int(parameter)
+                    except:
+                        embed = create_embed("Error", "Invalid parameter.", embed_error_color, None, None)
+                    else:
+                        if int(parameter) <= 100:
+                            await message.channel.purge(limit=int(parameter), bulk=True)
+                            embed = embed = create_embed("Purge", f"Successfully purged {parameter} messages.", embed_color, None, None)
+                        else:
+                            embed = create_embed("Error", "You cannot purge more than 100 messages.", embed_error_color, None, None)
+                    
+                    await message.channel.send(embed=embed)
+        
+        match = re.match(rf"{re.escape(saved_data["command-prefix"])}(\S+) (\S+) (.+)", msg)
+        if match:
+            command = match.group(1)
+            parameter1 = match.group(2)
+            parameter2 = match.group(3)
+
+            if command == "dm":
+                try:
+                    member = await guild.fetch_member(get_id_from_mention(parameter1))
+                except:
+                    embed = create_embed("Error", "Could not find user.", embed_error_color, None, None)
+                    await message.reply(embed=embed)
+                else:
+                    emoji = discord.PartialEmoji(name="chickendrip", id="1390038881772240907")
+                    dm_channel = await member.create_dm()
+                    embed = create_embed(f"{message.author.name} (from '{guild.name}')", parameter2, embed_color, None, None)
+                    await dm_channel.send(embed=embed)
+                    await message.add_reaction(emoji)
+
+@client.event
+async def on_reaction_add(reaction, user):
+    trigger_message = await reaction.message.channel.fetch_message(reaction.message.reference.message_id)
+    if reaction.message == latest_help and reaction.me and user.id == trigger_message.author.id:
+        if reaction.emoji == "🌍":
+            embed = create_embed("General", general_help_message, embed_color, None, None)
+        elif reaction.emoji == "🎉":
+            embed = create_embed("Fun", fun_help_message, embed_color, None, None)
+        elif reaction.emoji == "🛡️":
+            embed = create_embed("Staff", staff_help_message, embed_color, None, None)
+
+        await reaction.message.clear_reactions()
+        await reaction.message.edit(embed=embed)
+
 @client.event
 async def on_ready():
-    cmds = ["ping", "reset-nick", "pookie", "barn", "git"]
+    guild = await client.fetch_guild(guild_id)
+    await guild.chunk()
+
+    cmds = ["ping", "reset-nick", "pookie", "barn", "change-prefix", "git", "dm", "profile", "eat",
+            "staff-call", "purge", "8ball", "qotd", "rate", "help"]
+    cmds.sort()
     while True:
         for cmd in cmds:
             await client.change_presence(activity=get_activity(cmd))
