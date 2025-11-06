@@ -7,6 +7,7 @@ import asyncio
 import datetime
 import random
 import time
+import requests
 
 embed_color = 431252
 embed_error_color = 16711680
@@ -248,6 +249,10 @@ async def on_message(message):
                 rating = random.randint(1, 10)
                 embed = create_embed("Rate", f"Giving a {rating}/10 to '{parameter}'", embed_color, None, None)
                 await message.reply(embed=embed)
+
+            if command == "image-gen":
+                embed = create_embed("Image Generation", f"Prompt: *{parameter}*", embed_color, f"https://pollinations.ai/p/{parameter}", None)
+                await message.reply(embed=embed)
             
             if staff_role in roles:
                 if command == "barn":
@@ -368,7 +373,7 @@ async def on_ready():
     await guild.chunk()
 
     cmds = ["ping", "reset-nick", "pookie", "barn", "change-prefix", "git", "dm", "profile", "eat",
-            "staff-call", "purge", "8ball", "qotd", "rate", "help"]
+            "staff-call", "purge", "8ball", "qotd", "rate", "help", "image-gen"]
     cmds.sort()
     while True:
         for cmd in cmds:
